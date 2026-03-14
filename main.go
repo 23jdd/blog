@@ -4,10 +4,10 @@ import (
 	"blog/internal/config"
 	"blog/internal/middle"
 	"fmt"
-	"log"
-
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
+	"log"
+	"os"
 )
 
 // @title Blog API
@@ -35,10 +35,26 @@ func MustInitConfig() *config.Config {
 }
 
 func main() {
+
 	cfg := MustInitConfig()
+	logFile, err := os.OpenFile("log.txt", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err != nil {
+		panic(fmt.Sprintf("Error opening log file: %v", err))
+	}
+	defer logFile.Close()
+	log.SetOutput(logFile)
 	port := cfg.Port
-	router := gin.Default()
-	router.Use(middle.ReadLimitMiddlerWare(cfg.ReadLimit, cfg.Rate) // 读取限制中间件
+	router := gin.New()
+	router.Use(gin.LoggerWithConfig(gin.LoggerConfig{
+		Output: logFile,
+	}))
+	router.Use(gin.Recovery())
+	router.Use(middle.ReadLimitMiddlerWare(cfg.ReadLimit, cfg.Rate)) // 读取限制中间件
+	router.GET("/", func(ctx *gin.Context) {
+		ctx.JSON(200, gin.H{
+			"message": "Hello World",
+		})
+	})
 	log.Printf("Server starting on port %d", port)
 	router.Run(fmt.Sprintf(":%d", port))
 }

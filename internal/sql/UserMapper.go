@@ -2,6 +2,11 @@ package sql
 
 import (
 	"blog/internal/model"
+	"encoding/json"
+
+	"blog/internal/redis"
+	"context"
+	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 )
@@ -105,6 +110,33 @@ func (u *UserMapper) FindByUsernameOrID(username string, id int) (*model.User, e
 func (u *UserMapper) FindByUsernameAndID(username string, id int) (*model.User, error) {
 	var user model.User
 	err := u.db.Select(&user, "SELECT * FROM user WHERE username = ? AND id = ?", username, id)
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+// GetUserInfoByID 根据用户ID获取用户信息
+// redis put {id}:info
+func (u *UserMapper) GetUserInfoByID(id int) (*model.User, error) {
+	var user model.User
+	key := fmt.Sprintf("%d:info", id)
+	value, err := redis.Client.Get(context.Background(), key).Result()
+	if err != nil {
+		// 缓存中不存在，从数据库查询
+		err = u.db.Select(&user, "SELECT username, image, age, gender FROM user WHERE id = ?", id)
+		if err != nil {
+			return nil, err
+		}
+		// 序列化用户信息并存储到缓存中
+		userJSON, err := json.Marshal(user)
+		if err != nil {
+			return nil, err
+		}
+		redis.Client.Set(context.Background(), key, userJSON, 0)
+		return &user, nil
+	}
+	err = json.Unmarshal([]byte(value), &user)
 	if err != nil {
 		return nil, err
 	}
