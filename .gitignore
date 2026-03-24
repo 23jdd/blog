@@ -2,3 +2,5 @@
 ./go.mod
 ./log.txt
 ./config.yaml
+./uploads/*
+./front/*
