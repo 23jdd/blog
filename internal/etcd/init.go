@@ -3,8 +3,9 @@ package etcd
 import (
 	"context"
 	"fmt"
-	clientv3 "go.etcd.io/etcd/client/v3"
 	"time"
+
+	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 type EtcdClient struct {
@@ -27,9 +28,38 @@ func init() {
 	if err != nil {
 		panic(fmt.Sprintf("Error connecting to etcd: %v", err))
 	}
+	fmt.Printf("client: %v", client) // 打印 etcd 客户端
 }
 func (c *EtcdClient) Close() error {
 	return c.Client.Close()
+}
+
+func (e *EtcdClient) Put(key, value string) error {
+	_, err := e.Client.Put(context.Background(), key, value)
+	return err
+}
+
+func (e *EtcdClient) Get(key string) (string, error) {
+	resp, err := e.Client.Get(context.Background(), key)
+	if err != nil {
+		return "", err
+	}
+	if len(resp.Kvs) == 0 {
+		return "", nil
+	}
+	return string(resp.Kvs[0].Value), nil
+}
+
+func (e *EtcdClient) Watch(key string, onChange func(string)) {
+	ch := e.Client.Watch(context.Background(), key)
+	go func() {
+		for watchResp := range ch {
+			for _, ev := range watchResp.Events {
+				onChange(string(ev.Kv.Value))
+			}
+		}
+	}()
+	fmt.Println("Watching key: ", key) // 打印监听的键
 }
 
 // 分两步实现加锁

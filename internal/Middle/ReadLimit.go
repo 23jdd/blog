@@ -15,6 +15,7 @@ type ReadLimiter struct {
 	rate  int64      // 读取速率
 }
 
+// 令牌桶算法
 func (r *ReadLimiter) Request(count int64) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()

@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blog Web - Vue2</title>
+  <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial; background: #f3f5f9; color: #1f2937; }
+    .layout { display: grid; grid-template-columns: 230px 1fr 360px; gap: 14px; max-width: 1600px; margin: 0 auto; padding: 14px; }
+    .card { background: #fff; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,.06); padding: 12px; }
+    .sidebar h2 { margin: 6px 0 14px; font-size: 18px; }
+    .menu-btn { width: 100%; text-align: left; padding: 10px; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 8px; cursor: pointer; background: #fff; }
+    .menu-btn.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+    .topbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .tag { display: inline-block; background: #e5edff; color: #1d4ed8; padding: 3px 10px; border-radius: 999px; font-size: 12px; }
+    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+    .row > * { min-height: 34px; }
+    input, textarea, select, button { border: 1px solid #d1d5db; border-radius: 8px; padding: 7px 10px; font-size: 14px; }
+    textarea { min-height: 78px; min-width: 320px; resize: vertical; }
+    button { cursor: pointer; background: #2563eb; color: #fff; border-color: #2563eb; }
+    button.gray { background: #6b7280; border-color: #6b7280; }
+    button.green { background: #059669; border-color: #059669; }
+    button.warn { background: #dc2626; border-color: #dc2626; }
+    h3 { margin: 0 0 10px; }
+    .muted { color: #6b7280; font-size: 12px; }
+    .list { max-height: 420px; overflow: auto; border: 1px solid #e5e7eb; border-radius: 10px; padding: 8px; }
+    .item { border-bottom: 1px solid #f1f5f9; padding: 8px 2px; }
+    .item:last-child { border-bottom: none; }
+    .item-title { font-weight: 600; margin-bottom: 6px; }
+    .item-meta { font-size: 12px; color: #6b7280; display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+    .item-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+    .preview { border: 1px solid #e5e7eb; border-radius: 10px; min-height: 260px; overflow: auto; padding: 10px; background: #fff; }
+    .editor-box { border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px; background: #fff; }
+    .editor-box textarea { width: 100%; min-height: 220px; }
+    .right pre { margin: 0; white-space: pre-wrap; word-break: break-word; background: #111827; color: #e5e7eb; padding: 10px; border-radius: 10px; max-height: 83vh; overflow: auto; }
+    .split { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media (max-width: 1300px) { .layout { grid-template-columns: 210px 1fr; } .right { grid-column: 1 / -1; } }
+    @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div id="app" class="layout">
+    <aside class="sidebar card">
+      <h2>Blog Web</h2>
+      <div class="row">
+        <span class="tag">{{ token ? "已登录" : "未登录" }}</span>
+      </div>
+      <button class="menu-btn" :class="{active: tab==='dashboard'}" @click="tab='dashboard'">仪表盘</button>
+      <button class="menu-btn" :class="{active: tab==='auth'}" @click="tab='auth'">认证</button>
+      <button class="menu-btn" :class="{active: tab==='articles'}" @click="tab='articles'">文章管理</button>
+      <button class="menu-btn" :class="{active: tab==='reader'}" @click="tab='reader'">阅读文章</button>
+      <button class="menu-btn" :class="{active: tab==='drafts'}" @click="tab='drafts'">草稿管理</button>
+      <button class="menu-btn" :class="{active: tab==='editor'}" @click="tab='editor'">草稿编辑器</button>
+      <button class="menu-btn" :class="{active: tab==='upload'}" @click="tab='upload'">上传中心</button>
+      <button class="menu-btn" :class="{active: tab==='interactions'}" @click="tab='interactions'">互动中心</button>
+      <button class="menu-btn" :class="{active: tab==='user'}" @click="tab='user'">用户中心</button>
+      <button class="menu-btn" :class="{active: tab==='settings'}" @click="tab='settings'">系统配置</button>
+    </aside>
+
+    <main>
+      <section class="card">
+        <div class="topbar">
+          <strong>API:</strong>
+          <input v-model.trim="baseURL" style="width:280px">
+          <button class="gray" @click="saveBaseURL">保存</button>
+          <span class="muted">建议用静态服务器打开前端，避免 origin=null 跨域问题</span>
+          <span class="tag">accessToken {{ token ? "OK" : "EMPTY" }}</span>
+          <span class="tag">refreshToken {{ refreshToken ? "OK" : "EMPTY" }}</span>
+        </div>
+      </section>
+
+      <section class="card" v-if="tab==='dashboard'">
+        <h3>仪表盘</h3>
+        <div class="row">
+          <button @click="loadHot">热门文章</button>
+          <button @click="loadFeed">我的 Feed</button>
+          <button @click="loadCollections">我的收藏</button>
+          <button class="gray" @click="loadDrafts">刷新草稿</button>
+          <button class="gray" @click="loadMyArticles">刷新我的文章</button>
+        </div>
+        <div class="split">
+          <div>
+            <h4>热门文章</h4>
+            <div class="list">
+              <div class="item" v-for="a in hotArticles" :key="'hot-'+a.id">
+                <div class="item-title">{{ a.title || ('#'+a.id) }}</div>
+                <div class="item-meta"><span>ID: {{ a.id }}</span><span>作者: {{ a.author_id }}</span></div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <h4>我的草稿</h4>
+            <div class="list">
+              <div class="item" v-for="d in drafts" :key="'d-'+d.id">
+                <div class="item-title">{{ d.title }}</div>
+                <div class="item-meta"><span>ID: {{ d.id }}</span><span>content_url: {{ d.content }}</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" v-if="tab==='auth'">
+        <h3>认证</h3>
+        <div class="row">
+          <input v-model.trim="auth.username" placeholder="用户名">
+          <input v-model.trim="auth.password" placeholder="密码" type="password">
+          <button @click="register">注册</button>
+          <button @click="login">登录</button>
+          <button @click="refresh">刷新令牌</button>
+          <button class="warn" @click="logout">登出</button>
+        </div>
+      </section>
+
+      <section class="card" v-if="tab==='articles'">
+        <h3>文章管理（content 存 URL）</h3>
+        <div class="row">
+          <input v-model.trim="articleForm.title" placeholder="标题" style="width:220px">
+          <input v-model.trim="articleForm.content_url" placeholder="content_url，如 /uploads/1/a.md" style="width:360px">
+          <input v-model.number="articleForm.draft_id" type="number" placeholder="从草稿发布 draft_id(可空)">
+        </div>
+        <div class="row">
+          <input v-model.trim="articleForm.tags" placeholder="标签,逗号分隔">
+          <input v-model.number="articleForm.category_id" type="number" placeholder="分类ID">
+          <input v-model.trim="articleForm.cover_url" placeholder="封面URL" style="width:280px">
+          <select v-model="articleForm.status">
+            <option value="draft">draft</option>
+            <option value="published">published</option>
+            <option value="offline">offline</option>
+          </select>
+        </div>
+        <div class="row">
+          <button class="green" @click="createArticle">创建/发布文章</button>
+          <input v-model.number="selectedArticleId" type="number" placeholder="文章ID">
+          <button @click="getArticle">查看详情</button>
+          <button @click="updateArticle">更新</button>
+          <button class="warn" @click="deleteArticle">删除</button>
+          <button class="gray" @click="loadMyArticles">我的文章</button>
+        </div>
+        <div class="list">
+          <div class="item" v-for="a in myArticles" :key="'a-'+a.id">
+            <div class="item-title">{{ a.title }}</div>
+            <div class="item-meta">
+              <span>ID: {{ a.id }}</span>
+              <span>状态: {{ a.status }}</span>
+              <span>content_url: {{ a.content }}</span>
+            </div>
+            <div class="item-actions">
+              <button class="gray" @click="fillArticle(a)">回填</button>
+              <button class="green" @click="openReaderFromArticle(a)">阅读</button>
+              <button @click="quickStatus(a,'published')">发布</button>
+              <button class="gray" @click="quickStatus(a,'offline')">下架</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" v-if="tab==='reader'">
+        <h3>阅读文章</h3>
+        <div class="row">
+          <input v-model.number="reader.articleId" type="number" placeholder="文章ID">
+          <button @click="readArticleById">读取并渲染</button>
+          <input v-model.trim="reader.contentURL" placeholder="或直接填 content_url" style="width:420px">
+          <button class="gray" @click="readByURL">按 URL 读取</button>
+        </div>
+        <div class="row muted">
+          <span>当前标题：{{ reader.title || '未选择' }}</span>
+          <span>当前 URL：{{ reader.contentURL || '未设置' }}</span>
+        </div>
+        <div class="split">
+          <div class="editor-box">
+            <h4>原始 Markdown</h4>
+            <pre>{{ reader.markdown || '暂无内容' }}</pre>
+          </div>
+          <div class="editor-box">
+            <h4>渲染预览</h4>
+            <div class="preview" v-html="reader.html"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" v-if="tab==='drafts'">
+        <h3>草稿管理（请求可直接传 content）</h3>
+        <div class="row">
+          <input v-model.trim="draftForm.title" placeholder="草稿标题" style="width:220px">
+          <input v-model.trim="draftForm.content_url" placeholder="可选 content_url，如 /uploads/1/draft.md" style="width:360px">
+          <input v-model.number="selectedDraftId" type="number" placeholder="草稿ID">
+        </div>
+        <div class="row">
+          <textarea v-model="draftForm.content" placeholder="草稿 markdown 内容（推荐直接填这个）" style="width:100%;min-height:140px;"></textarea>
+        </div>
+        <div class="row">
+          <button class="green" @click="saveDraft">保存草稿</button>
+          <button @click="updateDraft">更新草稿</button>
+          <button class="warn" @click="deleteDraft">删除草稿</button>
+          <button class="gray" @click="loadDrafts">刷新列表</button>
+          <button @click="publishByDraft">发布选中草稿</button>
+        </div>
+        <div class="list">
+          <div class="item" v-for="d in drafts" :key="'draft-'+d.id">
+            <div class="item-title">{{ d.title }}</div>
+            <div class="item-meta"><span>ID: {{ d.id }}</span><span>content_url: {{ d.content }}</span></div>
+            <div class="item-actions">
+              <button class="gray" @click="fillDraft(d)">回填</button>
+              <button class="green" @click="openEditor(d)">编辑</button>
+              <button class="gray" @click="fillDraftContentFromURL(d)">读取URL内容到文本</button>
+              <button @click="publish(d)">发布为文章</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" v-if="tab==='editor'">
+        <h3>草稿编辑器</h3>
+        <div class="row">
+          <input v-model.number="draftEditor.id" type="number" placeholder="草稿ID">
+          <button @click="loadDraftToEditor">加载草稿</button>
+          <input v-model.trim="draftEditor.title" placeholder="草稿标题" style="width:280px">
+        </div>
+        <div class="row">
+          <input v-model.trim="draftEditor.contentURL" placeholder="content_url" style="width:520px">
+          <button class="gray" @click="loadEditorByURL">从 URL 读取内容</button>
+        </div>
+        <div class="editor-box">
+          <textarea v-model="draftEditor.markdown" placeholder="在这里编辑 markdown 内容"></textarea>
+        </div>
+        <div class="row">
+          <button class="green" @click="saveEditorAsNewFile">上传为新文件并更新草稿</button>
+          <button class="gray" @click="previewEditorMarkdown">预览 Markdown</button>
+        </div>
+        <div class="preview" v-html="draftEditor.html"></div>
+      </section>
+
+      <section class="card" v-if="tab==='upload'">
+        <h3>上传中心</h3>
+        <div class="row">
+          <input ref="avatarInput" type="file" accept=".jpg,.jpeg,.png">
+          <button @click="uploadAvatar">上传头像</button>
+        </div>
+        <div class="row">
+          <input ref="mdInput" type="file" accept=".md,text/markdown,text/plain">
+          <button @click="uploadMarkdown">上传 Markdown 文件</button>
+          <span class="muted">上传后返回 URL，可直接填到 content_url</span>
+        </div>
+      </section>
+
+      <section class="card" v-if="tab==='interactions'">
+        <h3>互动中心</h3>
+        <div class="row">
+          <input v-model.number="interaction.article_id" type="number" placeholder="文章ID">
+          <input v-model.trim="interaction.comment" placeholder="评论内容" style="width:300px">
+          <input v-model.number="interaction.parent_id" type="number" placeholder="parent_id">
+          <button @click="createComment">发表评论</button>
+          <button class="gray" @click="listComments">查看评论</button>
+        </div>
+        <div class="row">
+          <input v-model.number="interaction.comment_id" type="number" placeholder="评论ID">
+          <select v-model="interaction.comment_status"><option>pending</option><option>approved</option><option>rejected</option></select>
+          <button @click="auditComment">审核评论</button>
+          <button class="warn" @click="deleteComment">删除评论</button>
+        </div>
+        <div class="row">
+          <button @click="like">点赞</button>
+          <button class="gray" @click="unlike">取消点赞</button>
+          <button @click="collect">收藏</button>
+          <button class="gray" @click="uncollect">取消收藏</button>
+          <button class="gray" @click="loadCollections">我的收藏</button>
+          <button class="gray" @click="loadFeed">我的Feed</button>
+        </div>
+      </section>
+
+      <section class="card" v-if="tab==='settings'">
+        <h3>系统配置</h3>
+        <div class="row">
+          <input v-model.trim="cfg.key" placeholder="配置 key，如 limit.read">
+          <input v-model.trim="cfg.value" placeholder="配置 value">
+          <button @click="setConfig">更新配置</button>
+          <button class="gray" @click="getConfig">读取配置</button>
+        </div>
+        <div class="row">
+          <button @click="previewMarkdown">调用 /markdown 预览</button>
+        </div>
+        <div class="preview" v-html="markdownPreview"></div>
+      </section>
+
+      <section class="card" v-if="tab==='user'">
+        <h3>用户中心（/user/*）</h3>
+        <div class="row">
+          <button @click="getUserInfo">获取用户信息</button>
+          <input v-model.trim="userForm.age" placeholder="age">
+          <input v-model.trim="userForm.gender" placeholder="gender">
+          <button @click="updateUserInfo">更新用户信息</button>
+          <button class="warn" @click="deleteUser">删除用户</button>
+        </div>
+        <div class="row">
+          <button class="gray" @click="runUserSmokeTest">一键用户回归测试</button>
+          <span class="muted">流程：/user/info -> /user/update -> /user/info</span>
+        </div>
+        <div class="preview">
+          <pre>{{ pretty(userInfoPreview) }}</pre>
+        </div>
+      </section>
+    </main>
+
+    <aside class="right card">
+      <h3>请求日志 / 响应</h3>
+      <pre>{{ pretty(lastResponse) }}</pre>
+    </aside>
+  </div>
+  <script src="./app.js"></script>
+</body>
+</html>

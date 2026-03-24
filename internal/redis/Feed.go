@@ -20,7 +20,7 @@ var ctx = context.Background()
 type FeedService struct {
 	client *redis.Client
 }
-
+// 创建FeedService
 func NewFeedService(client *redis.Client) *FeedService {
 	return &FeedService{
 		client: client,
@@ -32,16 +32,14 @@ func getFeedKey(userID int) string {
 }
 
 func (fs *FeedService) AddArticleToFeed(userID int, articleID int, timestamp time.Time) error {
-	key := getFeedKey(userID)
-	score := float64(timestamp.Unix())
-
-	member := strconv.Itoa(articleID)
-
+	key := getFeedKey(userID) // "feed:user:1"
+	score := float64(timestamp.Unix()) // 时间戳
+	member := strconv.Itoa(articleID) // "1"
 	err := fs.client.ZAdd(ctx, key, redis.Z{
 		Score:  score,
 		Member: member,
 	}).Err()
-
+    // 添加文章到Feed中如果失败，返回 500 错误
 	if err != nil {
 		log.Printf("Failed to add article %d to user %d feed: %v", articleID, userID, err)
 		return fmt.Errorf("failed to add article to feed: %w", err)

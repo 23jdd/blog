@@ -12,8 +12,8 @@ import (
 var Client *redis.Client
 
 func InitRedis() {
-	viper.SetDefault("redis.addr", "localhost:6379")
-	viper.SetDefault("redis.password", "")
+	viper.SetDefault("redis.addr", "192.168.116.130:6379")
+	viper.SetDefault("redis.password", "1234")
 	viper.SetDefault("redis.db", 0)
 	viper.SetDefault("redis.pool_size", 10)
 	viper.SetDefault("redis.min_idle_conns", 5)

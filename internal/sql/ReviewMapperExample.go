@@ -19,11 +19,11 @@ func ExampleReviewMapperUsage() {
 	reviewMapper := NewReviewMapper(db)
 
 	newReview := &model.Review{
-		ArticleID:  1,
-		Content:    "这是一篇很棒的文章！",
-		AuthorID:   100,
-		IsDirect:   true,
-		ParentID:   0,
+		ArticleID: 1,
+		Content:   "这是一篇很棒的文章！",
+		AuthorID:  100,
+		IsDirect:  true,
+		ParentID:  0,
 	}
 
 	id, err := reviewMapper.Create(newReview)

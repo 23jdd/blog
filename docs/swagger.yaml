@@ -1,0 +1,1481 @@
+basePath: /
+definitions:
+  handlers.DynamicConfigRequest:
+    properties:
+      key:
+        type: string
+      value:
+        type: string
+    type: object
+  model.Article:
+    properties:
+      author_id:
+        type: integer
+      category_id:
+        description: 分类ID
+        type: integer
+      content:
+        description: markdown格式 url
+        type: string
+      cover_url:
+        description: 封面图URL
+        type: string
+      create_time:
+        type: string
+      id:
+        type: integer
+      status:
+        description: draft/published/offline
+        type: string
+      tags:
+        description: 标签，逗号分隔
+        type: string
+      title:
+        type: string
+      update_time:
+        type: string
+    type: object
+  model.Collect:
+    properties:
+      articleID:
+        type: integer
+      articleTitle:
+        type: string
+      authorID:
+        type: integer
+      createTime:
+        type: string
+      id:
+        type: integer
+      updateTime:
+        type: string
+      userID:
+        type: integer
+    type: object
+  model.Review:
+    properties:
+      articleID:
+        description: 评论文章ID
+        type: integer
+      authorID:
+        description: 评论作者ID
+        type: integer
+      content:
+        description: 评论内容
+        type: string
+      createTime:
+        description: 创建时间
+        type: string
+      id:
+        description: 评论ID
+        type: integer
+      isDirect:
+        description: 是否直接评论
+        type: boolean
+      parentID:
+        description: 父评论ID
+        type: integer
+      status:
+        description: 审核状态：pending/approved/rejected
+        type: string
+      updateTime:
+        description: 更新时间
+        type: string
+    type: object
+  types.CreateArticleRequest:
+    properties:
+      category_id:
+        type: integer
+      content:
+        description: 兼容旧字段，等价于 content_url
+        type: string
+      content_url:
+        description: markdown 文件 URL
+        type: string
+      cover_url:
+        description: 封面图URL
+        type: string
+      draft_id:
+        description: 发布时可选择草稿
+        type: integer
+      status:
+        description: draft/published/offline
+        type: string
+      tags:
+        description: 标签，逗号分隔
+        type: string
+      title:
+        type: string
+    type: object
+  types.CreateArticleResponse:
+    properties:
+      id:
+        type: integer
+    type: object
+  types.CreateCommentRequest:
+    properties:
+      content:
+        type: string
+      parent_id:
+        type: integer
+    type: object
+  types.DraftSaveRequest:
+    properties:
+      content:
+        description: 兼容旧字段，等价于 content_url
+        type: string
+      content_url:
+        type: string
+      title:
+        maxLength: 255
+        type: string
+    required:
+    - content_url
+    - title
+    type: object
+  types.ErrorResponse:
+    properties:
+      code:
+        description: 错误码
+        example: 400
+        type: integer
+      data:
+        type: object
+      message:
+        description: 错误信息
+        example: 参数错误
+        type: string
+      token:
+        example: ""
+        type: string
+    type: object
+  types.LikeActionResponse:
+    properties:
+      liked:
+        type: boolean
+    type: object
+  types.LoginRequest:
+    properties:
+      password:
+        example: P@ssw0rd123
+        type: string
+      username:
+        example: alice
+        type: string
+    type: object
+  types.LoginResponse:
+    properties:
+      access_token:
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+      code:
+        example: 200
+        type: integer
+      message:
+        example: success
+        type: string
+      refresh_token:
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+    type: object
+  types.RefreshTokenRequest:
+    properties:
+      refresh_token:
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+    type: object
+  types.ReviewStatusRequest:
+    properties:
+      status:
+        description: pending/approved/rejected
+        type: string
+    type: object
+  types.SuccessResponse:
+    properties:
+      code:
+        description: 业务码
+        example: 200
+        type: integer
+      data:
+        type: object
+      message:
+        description: 成功信息
+        example: 操作成功
+        type: string
+    type: object
+  types.UpdateArticleRequest:
+    properties:
+      category_id:
+        type: integer
+      content:
+        description: 兼容旧字段，等价于 content_url
+        type: string
+      content_url:
+        description: markdown 文件 URL
+        type: string
+      cover_url:
+        type: string
+      tags:
+        type: string
+      title:
+        type: string
+    type: object
+  types.UpdateArticleStatusRequest:
+    properties:
+      status:
+        description: draft/published/offline
+        type: string
+    type: object
+  types.UserInfoResponse:
+    properties:
+      age:
+        example: 25
+        type: integer
+      gender:
+        example: female
+        type: string
+      id:
+        example: 1
+        type: integer
+      image:
+        example: /uploads/1/avatar.png
+        type: string
+      username:
+        example: alice
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  title: Blog API
+  version: "1.0"
+paths:
+  /articles:
+    post:
+      consumes:
+      - application/json
+      description: 创建新的文章
+      parameters:
+      - description: 文章信息
+        in: body
+        name: article
+        required: true
+        schema:
+          $ref: '#/definitions/types.CreateArticleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.CreateArticleResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: 创建文章
+      tags:
+      - articles
+  /articles/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: 删除文章
+      parameters:
+      - description: 文章ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: 删除文章
+      tags:
+      - articles
+    get:
+      consumes:
+      - application/json
+      description: 根据文章ID获取文章详情
+      parameters:
+      - description: 文章ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Article'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: 获取文章详情
+      tags:
+      - articles
+    put:
+      consumes:
+      - application/json
+      description: 更新文章基础信息
+      parameters:
+      - description: 文章ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 更新信息
+        in: body
+        name: article
+        required: true
+        schema:
+          $ref: '#/definitions/types.UpdateArticleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: 更新文章
+      tags:
+      - articles
+  /articles/{id}/collections:
+    delete:
+      consumes:
+      - application/json
+      description: 取消当前用户对文章的收藏
+      parameters:
+      - description: 文章ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: 取消收藏
+      tags:
+      - interactions
+    post:
+      consumes:
+      - application/json
+      description: 收藏文章，重复收藏返回已收藏
+      parameters:
+      - description: 文章ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: 收藏文章
+      tags:
+      - interactions
+  /articles/{id}/comments:
+    get:
+      consumes:
+      - application/json
+      description: 分页获取文章评论
+      parameters:
+      - description: 文章ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: pageSize
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.Review'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: 获取文章评论列表
+      tags:
+      - interactions
+    post:
+      consumes:
+      - application/json
+      description: 对文章发布评论，parent_id=0 表示一级评论，非0表示回复评论
+      parameters:
+      - description: 文章ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 评论内容
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/types.CreateCommentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: 发布评论
+      tags:
+      - interactions
+  /articles/{id}/likes:
+    delete:
+      consumes:
+      - application/json
+      description: 取消当前用户对文章的点赞
+      parameters:
+      - description: 文章ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.LikeActionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: 取消点赞
+      tags:
+      - interactions
+    post:
+      consumes:
+      - application/json
+      description: 对文章点赞，重复点赞直接返回已点赞状态
+      parameters:
+      - description: 文章ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.LikeActionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: 点赞文章
+      tags:
+      - interactions
+  /articles/{id}/stats:
+    get:
+      consumes:
+      - application/json
+      description: 返回文章访问量、点赞数、评论数
+      parameters:
+      - description: 文章ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: 获取文章统计信息
+      tags:
+      - recommend
+  /articles/{id}/status:
+    patch:
+      consumes:
+      - application/json
+      description: 设置文章状态（草稿/发布/下架）
+      parameters:
+      - description: 文章ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 状态信息
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/types.UpdateArticleStatusRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: 更新文章状态
+      tags:
+      - articles
+  /articles/author/{authid}:
+    get:
+      consumes:
+      - application/json
+      description: 按作者ID查询文章列表
+      parameters:
+      - description: 作者ID
+        in: path
+        name: authid
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.Article'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: 按作者查询文章
+      tags:
+      - articles
+  /articles/by-tag:
+    get:
+      consumes:
+      - application/json
+      description: 按标签查询文章列表（支持分页）
+      parameters:
+      - description: 标签
+        in: query
+        name: tag
+        required: true
+        type: string
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: pageSize
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.Article'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: 按标签查询文章
+      tags:
+      - articles
+  /articles/category/{categoryID}:
+    get:
+      consumes:
+      - application/json
+      description: 按分类ID查询文章列表（支持分页）
+      parameters:
+      - description: 分类ID
+        in: path
+        name: categoryID
+        required: true
+        type: integer
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: pageSize
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.Article'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: 按分类查询文章
+      tags:
+      - articles
+  /articles/comments/{commentID}:
+    delete:
+      consumes:
+      - application/json
+      description: 删除当前用户自己的评论
+      parameters:
+      - description: 评论ID
+        in: path
+        name: commentID
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: 删除评论
+      tags:
+      - interactions
+  /articles/comments/{commentID}/status:
+    patch:
+      consumes:
+      - application/json
+      description: 审核评论状态（pending/approved/rejected）
+      parameters:
+      - description: 评论ID
+        in: path
+        name: commentID
+        required: true
+        type: integer
+      - description: 审核状态
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/types.ReviewStatusRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: 审核评论
+      tags:
+      - interactions
+  /articles/hot:
+    get:
+      consumes:
+      - application/json
+      description: 按热度分数返回热门文章ID列表
+      parameters:
+      - description: 返回条数
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: 获取热门文章榜单
+      tags:
+      - recommend
+  /articles/search:
+    get:
+      consumes:
+      - application/json
+      description: 搜索文章列表（支持分页）
+      parameters:
+      - description: 关键词
+        in: query
+        name: keyword
+        required: true
+        type: string
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: pageSize
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.Article'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: 搜索文章
+      tags:
+      - articles
+  /auth/judgeToken:
+    get:
+      consumes:
+      - text/html
+      description: JudgeToken
+      produces:
+      - text/html
+      responses:
+        "302":
+          description: Redirect to main page
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: JudgeToken
+      tags:
+      - auth
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Login
+      parameters:
+      - description: Login Request
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/types.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.LoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: Login
+      tags:
+      - auth
+  /auth/logout:
+    post:
+      consumes:
+      - application/json
+      description: Logout
+      parameters:
+      - description: 可选，携带 refresh_token 用于同步撤销
+        in: body
+        name: req
+        schema:
+          $ref: '#/definitions/types.RefreshTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.SuccessResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: Logout
+      tags:
+      - auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: 使用 refresh_token 刷新访问令牌
+      parameters:
+      - description: Refresh Token Request
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/types.RefreshTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.LoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: RefreshToken
+      tags:
+      - auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Register
+      parameters:
+      - description: Register Request
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/types.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.LoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: Register
+      tags:
+      - auth
+  /config:
+    get:
+      consumes:
+      - application/json
+      description: 按 key 查询 etcd 中的配置值
+      parameters:
+      - description: 配置键
+        in: query
+        name: key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: 查询动态配置
+      tags:
+      - config
+    post:
+      consumes:
+      - application/json
+      description: 将配置写入 etcd 并同步到当前服务进程
+      parameters:
+      - description: 动态配置
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.DynamicConfigRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: 更新动态配置
+      tags:
+      - config
+  /drafts:
+    get:
+      consumes:
+      - application/json
+      description: 获取当前登录用户的草稿列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.SuccessResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: 草稿列表
+      tags:
+      - drafts
+    post:
+      consumes:
+      - application/json
+      description: 保存当前登录用户的草稿
+      parameters:
+      - description: 草稿内容
+        in: body
+        name: draft
+        required: true
+        schema:
+          $ref: '#/definitions/types.DraftSaveRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: 保存草稿
+      tags:
+      - drafts
+  /drafts/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: 删除当前登录用户自己的草稿
+      parameters:
+      - description: 草稿ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: 删除草稿
+      tags:
+      - drafts
+    put:
+      consumes:
+      - application/json
+      description: 更新当前登录用户自己的草稿
+      parameters:
+      - description: 草稿ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 草稿内容
+        in: body
+        name: draft
+        required: true
+        schema:
+          $ref: '#/definitions/types.DraftSaveRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: 更新草稿
+      tags:
+      - drafts
+  /email/verify:
+    get:
+      consumes:
+      - application/json
+      description: EmailVerifyHandler
+      parameters:
+      - description: ??
+        in: query
+        name: email
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: EmailVerifyHandler
+      tags:
+      - email
+  /file/setPersonImage:
+    post:
+      consumes:
+      - multipart/form-data
+      description: ????????
+      parameters:
+      - description: ??
+        in: formData
+        name: image
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: ????????
+      tags:
+      - file
+  /file/uploadArticle:
+    post:
+      consumes:
+      - multipart/form-data
+      description: ??????
+      parameters:
+      - description: ??
+        in: formData
+        name: article
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: ??????
+      tags:
+      - file
+  /interactions/feed:
+    get:
+      consumes:
+      - application/json
+      description: 分页获取当前用户的Feed文章ID列表
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: pageSize
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: 获取个性化Feed
+      tags:
+      - recommend
+  /interactions/my-collections:
+    get:
+      consumes:
+      - application/json
+      description: 分页查询当前用户收藏的文章
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: pageSize
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/model.Collect'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: 获取我的收藏列表
+      tags:
+      - interactions
+  /markdown:
+    post:
+      consumes:
+      - text/html
+      description: MarkdownHandler
+      parameters:
+      - description: Markdown
+        in: body
+        name: markdown
+        required: true
+        schema:
+          type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: MarkdownHandler
+      tags:
+      - markdown
+  /user/delete:
+    delete:
+      consumes:
+      - application/json
+      description: DeleteUser
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.SuccessResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: DeleteUser
+      tags:
+      - auth
+  /user/info:
+    get:
+      consumes:
+      - application/json
+      description: GetUserInfo
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.UserInfoResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: GetUserInfo
+      tags:
+      - auth
+  /user/update:
+    post:
+      consumes:
+      - application/json
+      description: UpdateUserInfo
+      parameters:
+      - description: Age
+        in: formData
+        name: age
+        required: true
+        type: string
+      - description: Gender
+        in: formData
+        name: gender
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.SuccessResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: UpdateUserInfo
+      tags:
+      - auth
+swagger: "2.0"

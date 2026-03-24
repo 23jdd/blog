@@ -1,0 +1,21 @@
+server:
+  port: 8080
+
+limit:
+  read: 100
+  rate: 1
+
+smtp:
+  host: ""
+  port: 587
+  username: ""
+  password: ""
+  from: ""
+
+upload:
+  dir: "uploads"
+  url_prefix: "/uploads"
+
+feature:
+  enable_email_verify: true
+  enable_markdown_api: true

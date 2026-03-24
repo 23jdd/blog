@@ -16,9 +16,13 @@ func NewReviewMapper(db *sqlx.DB) *ReviewMapper {
 }
 
 func (r *ReviewMapper) Create(review *model.Review) (int64, error) {
+	status := review.Status
+	if status == "" {
+		status = "pending"
+	}
 	result, err := r.DB.Exec(`
-		INSERT INTO review (article_id, create_time, update_time, content, author_id, is_direct, parent_id)
-		VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		INSERT INTO review (article_id, create_time, update_time, content, author_id, is_direct, parent_id, status)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 		review.ArticleID,
 		time.Now(),
 		time.Now(),
@@ -26,6 +30,7 @@ func (r *ReviewMapper) Create(review *model.Review) (int64, error) {
 		review.AuthorID,
 		review.IsDirect,
 		review.ParentID,
+		status,
 	)
 	if err != nil {
 		return 0, err
@@ -168,6 +173,11 @@ func (r *ReviewMapper) DeleteByID(id int) error {
 	return err
 }
 
+func (r *ReviewMapper) DeleteByIDAndAuthor(id int, authorID int) error {
+	_, err := r.DB.Exec("DELETE FROM review WHERE id = ? AND author_id = ?", id, authorID)
+	return err
+}
+
 func (r *ReviewMapper) DeleteByArticleID(articleID int) error {
 	_, err := r.DB.Exec("DELETE FROM review WHERE article_id = ?", articleID)
 	return err
@@ -296,8 +306,8 @@ func (r *ReviewMapper) BatchCreate(reviews []*model.Review) (int64, error) {
 
 	now := time.Now()
 	query := `
-		INSERT INTO review (article_id, create_time, update_time, content, author_id, is_direct, parent_id)
-		VALUES (?, ?, ?, ?, ?, ?, ?)`
+		INSERT INTO review (article_id, create_time, update_time, content, author_id, is_direct, parent_id, status)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
 
 	stmt, err := tx.Prepare(query)
 	if err != nil {
@@ -307,6 +317,10 @@ func (r *ReviewMapper) BatchCreate(reviews []*model.Review) (int64, error) {
 
 	var lastID int64
 	for _, review := range reviews {
+		status := review.Status
+		if status == "" {
+			status = "pending"
+		}
 		result, err := stmt.Exec(
 			review.ArticleID,
 			now,
@@ -315,6 +329,7 @@ func (r *ReviewMapper) BatchCreate(reviews []*model.Review) (int64, error) {
 			review.AuthorID,
 			review.IsDirect,
 			review.ParentID,
+			status,
 		)
 		if err != nil {
 			return 0, err
@@ -329,4 +344,9 @@ func (r *ReviewMapper) BatchCreate(reviews []*model.Review) (int64, error) {
 	}
 
 	return lastID, nil
+}
+
+func (r *ReviewMapper) UpdateStatus(id int, status string) error {
+	_, err := r.DB.Exec("UPDATE review SET status = ?, update_time = ? WHERE id = ?", status, time.Now(), id)
+	return err
 }

@@ -11,4 +11,5 @@ type Review struct {
 	AuthorID   int       `db:"author_id"`   // 评论作者ID
 	IsDirect   bool      `db:"is_direct"`   //  是否直接评论
 	ParentID   int       `db:"parent_id"`   //  父评论ID
+	Status     string    `db:"status"`      // 审核状态：pending/approved/rejected
 }
