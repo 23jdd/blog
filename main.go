@@ -74,33 +74,46 @@ func main() {
 	router.Use(middle.ReadLimitMiddlerWare(cfg.Limit.Read, cfg.Limit.Rate)) // 读取限制中间件
 	router.Use(middle.RequestLogMiddleware())                               // 请求日志中间件
 	router.Static(cfg.Upload.URLPrefix, "./"+cfg.Upload.Dir)                // 静态文件
-	router.GET("/", func(ctx *gin.Context) {
-		ctx.JSON(200, gin.H{
-			"message": "Hello World",
-		})
-	}) // 根路径
+
+	// 前端静态资源托管（生产部署用）
+	frontDist := "./front/dist"
+	if _, err := os.Stat(frontDist + "/index.html"); err == nil {
+		router.GET("/", func(ctx *gin.Context) { ctx.File(frontDist + "/index.html") })
+		// Vite 默认把打包产物放到 /assets 下，这里只托管 assets 目录即可
+		router.Static("/assets", frontDist+"/assets")
+	} else if _, err := os.Stat("./front/index.html"); err == nil {
+		// 未构建 dist 时，仍然可以托管开发版页面（保证你能直接从 HTTP 访问）
+		router.GET("/", func(ctx *gin.Context) { ctx.File("./front/index.html") })
+		router.GET("/app.js", func(ctx *gin.Context) { ctx.File("./front/app.js") })
+	} else {
+		router.GET("/", func(ctx *gin.Context) {
+			ctx.JSON(200, gin.H{
+				"message": "Hello World",
+			})
+		}) // 根路径（开发/未构建前端时）
+	}
 
 	authGroup := router.Group("/auth") // 认证路由组
 	{
-		authGroup.POST("/login", handlers.LoginHandler)          // 登录
-		authGroup.POST("/register", handlers.RegisterHandler)    // 注册
-		authGroup.POST("/refresh", handlers.RefreshTokenHandler) // 刷新 token
-		if cfg.Feature.EnableEmailVerify {
-			authGroup.GET("/email/verify", handlers.EmailVerifyHandler) // 发送邮箱验证码
-		}
+		authGroup.POST("/login", handlers.LoginHandler)                          // 登录
+		authGroup.POST("/register", handlers.RegisterHandler)                    // 注册
+		authGroup.POST("/refresh", handlers.RefreshTokenHandler)                 // 刷新 token
+		authGroup.GET("/verification/send", handlers.SendVerificationCode)       // 发送验证码
 		authGroup.GET("/judgeToken", middle.AuthMiddleware, handlers.JudgeToken) // 判断 token 是否有效
 		authGroup.POST("/logout", middle.AuthMiddleware, handlers.LogoutHandler) // 登出
 	}
 
 	articleGroup := router.Group("/articles") // 文章路由组
 	{
-		articleGroup.GET("/:id", handlers.GetArticleByID)                         // 获取文章
-		articleGroup.GET("/author/:authid", handlers.GetArticlesByAuthorID)       // 获取作者文章
+		// 固定路径须注册在 /:id 之前，否则会被当成数字 id 解析失败
+		articleGroup.GET("/search", handlers.SearchArticles)                      // 搜索文章
+		articleGroup.GET("/hot", handlers.GetHotArticles)                         // 获取热门文章
 		articleGroup.GET("/by-tag", handlers.GetArticlesByTag)                    // 获取标签文章
+		articleGroup.GET("/author/:authid", handlers.GetArticlesByAuthorID)       // 获取作者文章
 		articleGroup.GET("/category/:categoryID", handlers.GetArticlesByCategory) // 获取分类文章
+		articleGroup.GET("/:id", handlers.GetArticleByID)                         // 获取文章
 		articleGroup.GET("/:id/comments", handlers.ListArticleComments)           // 获取文章评论
 		articleGroup.GET("/:id/stats", handlers.GetArticleStats)                  // 获取文章统计
-		articleGroup.GET("/hot", handlers.GetHotArticles)                         // 获取热门文章
 
 		articleGroup.Use(middle.AuthMiddleware)                                  // 认证中间件
 		articleGroup.POST("", handlers.CreateArticle)                            // 创建文章
@@ -120,12 +133,16 @@ func main() {
 	{
 		interactionGroup.GET("/my-collections", handlers.ListMyCollections) // 获取我的收藏
 		interactionGroup.GET("/feed", handlers.GetMyFeed)                   // 获取我的 Feed
+		interactionGroup.POST("/follow/:targetID", handlers.FollowUser)     // 关注用户
+		interactionGroup.DELETE("/follow/:targetID", handlers.UnfollowUser) // 取消关注用户
+	       // 获取我关注的人
 	}
 
 	fileGroup := router.Group("/file", middle.AuthMiddleware) // 文件路由组
 	{
 		fileGroup.POST("/setPersonImage", handlers.SetPersonImage)   // 设置个人头像
 		fileGroup.POST("/uploadArticle", handlers.UpLoadArticleFile) // 上传文章文件
+
 	}
 
 	if cfg.Feature.EnableMarkdownAPI {
@@ -147,10 +164,10 @@ func main() {
 	}
 	userGroup := router.Group("/user", middle.AuthMiddleware) // 用户路由组
 	{
-	    userGroup.GET("/info", handlers.GetUserInfoHandler) // 获取用户信息
-			userGroup.POST("/update", handlers.UpdateUserInfoHandler) // 更新用户信息
-			userGroup.DELETE("/delete", handlers.DeleteUserHandler) // 删除用户
-		}
+		userGroup.GET("/info", handlers.GetUserInfoHandler)       // 获取用户信息
+		userGroup.POST("/update", handlers.UpdateUserInfoHandler) // 更新用户信息
+		userGroup.DELETE("/delete", handlers.DeleteUserHandler)   // 删除用户
+	}
 	fmt.Printf("Server starting on port %d", port) // 启动服务器
 
 	router.Run(fmt.Sprintf(":%d", port)) // 运行服务器

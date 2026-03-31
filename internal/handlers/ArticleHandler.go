@@ -50,33 +50,33 @@ func CreateArticle(ctx *gin.Context) {
 			Message: "参数错误",
 		})
 		return
-	}
+	} // 如果参数错误，返回 400 错误
 
 	if req.Status == "" {
 		req.Status = "published"
-	}
+	} // 如果状态为空，则默认为 published
 	if req.Status != "draft" && req.Status != "published" && req.Status != "offline" {
 		ctx.JSON(http.StatusBadRequest, types.ErrorResponse{Message: "状态非法"})
 		return
-	}
+	} // 如果状态非法，返回 400 错误
 
-	userID, exists := ctx.Get("userID")
+	userID, exists := ctx.Get("userID") // 获取用户ID
 	if !exists {
 		ctx.JSON(http.StatusUnauthorized, types.ErrorResponse{Message: "未授权"})
 		return
-	}
-	authorID, ok := userID.(int)
+	} // 如果用户ID不存在，返回 401 错误
+	authorID, ok := userID.(int) // 将用户ID转换为 int 类型
 	if !ok {
 		ctx.JSON(http.StatusUnauthorized, types.ErrorResponse{Message: "未授权"})
 		return
-	}
+	} // 如果用户ID转换失败，返回 401 错误
 
-	title := strings.TrimSpace(req.Title)
+	title := strings.TrimSpace(req.Title) // 去除标题两端的空格
 	contentURL := normalizeArticleContentURL(req.ContentURL, req.Content)
-
+	// 如果草稿ID大于0，则从草稿中获取标题与内容URL
 	// 支持「发布时选择草稿」：传 draft_id 时从草稿带出标题与内容URL
 	if req.DraftID > 0 {
-		draft, derr := sql.NewDraftMapper().FindByID(req.DraftID)
+		draft, derr := sql.NewDraftMapper().FindByID(req.DraftID) // 从草稿中获取标题与内容URL
 		if derr != nil {
 			if errors.Is(derr, stdsql.ErrNoRows) {
 				ctx.JSON(http.StatusNotFound, types.ErrorResponse{Message: "草稿不存在"})
@@ -99,11 +99,11 @@ func CreateArticle(ctx *gin.Context) {
 	if title == "" || contentURL == "" {
 		ctx.JSON(http.StatusBadRequest, types.ErrorResponse{Message: "标题和content_url不能为空"})
 		return
-	}
+	} // 如果标题和content_url不能为空，返回 400 错误
 	if !isValidArticleContentURL(contentURL) {
 		ctx.JSON(http.StatusBadRequest, types.ErrorResponse{Message: "content_url 非法，必须是 / 开头或 http/https URL"})
 		return
-	}
+	} // 如果content_url非法，返回 400 错误
 
 	article := &model.Article{
 		Title:      title,
@@ -113,19 +113,32 @@ func CreateArticle(ctx *gin.Context) {
 		CategoryID: req.CategoryID,
 		Tags:       req.Tags,
 		CoverURL:   req.CoverURL,
-	}
+	} // 创建文章
 
-	articleMapper := sql.NewArticleMapper()
-	id, err := articleMapper.Insert(article)
+	articleMapper := sql.NewArticleMapper()  // 创建文章Mapper
+	id, err := articleMapper.Insert(article) // 插入文章
 	if err == nil {
 		feedService := redis.NewFeedService(redis.Client)
-		_ = feedService.AddArticleToFeed(authorID, int(id), time.Now())
+		now := time.Now()
+		articleID := int(id)
+		_ = feedService.AddArticleToFeed(authorID, articleID, now) // 作者自己也保留一份时间线
+
+		// 简单版写扩散：发文后批量推送给粉丝的 feed（followers:{authorID}）
+		followerIDs, ferr := feedService.GetFollowerIDs(authorID)
+		if ferr == nil && len(followerIDs) > 0 {
+			items := []redis.ArticleInfo{
+				{ID: articleID, Timestamp: now},
+			}
+			for _, followerID := range followerIDs {
+				_ = feedService.AddArticlesToFeedBatch(followerID, items)
+			}
+		}
 		ctx.JSON(http.StatusOK, types.CreateArticleResponse{ID: id})
 		return
-	}
+	} // 如果创建文章失败，返回 500 错误
 	ctx.JSON(http.StatusInternalServerError, types.ErrorResponse{
 		Message: "创建文章失败",
-	})
+	}) // 返回创建文章失败
 
 }
 
@@ -369,5 +382,15 @@ func SearchArticles(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, types.ErrorResponse{Message: "关键词不能为空"})
 		return
 	}
+	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("pageSize", "10"))
+	offset, limit := utils.ResolveOffsetLimit(page, pageSize)
 
+	articleMapper := sql.NewArticleMapper()
+	articles, err := articleMapper.SearchByKeyword(keyword, limit, offset)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, types.ErrorResponse{Message: "文章查询失败"})
+		return
+	}
+	ctx.JSON(http.StatusOK, articles)
 }

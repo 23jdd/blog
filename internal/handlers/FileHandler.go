@@ -4,7 +4,6 @@ import (
 	"blog/internal/Log"
 	"blog/internal/config"
 	"blog/internal/types"
-	"bytes"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
@@ -13,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"blog/internal/sql"
@@ -20,6 +20,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
+
+const maxAvatarBytes = 2 * 1024 * 1024           // 头像最大 2MB
+const maxArticleMarkdownBytes = 10 * 1024 * 1024 // 文章 Markdown 正文最大 10MB
+
+// ErrEmptyArticleContent 表示上传的正文为空（仅空白）。
+var ErrEmptyArticleContent = errors.New("文章内容不能为空")
 
 // @Summary		SetPersonImage
 // @Description	SetPersonImage
@@ -32,96 +38,98 @@ import (
 // @Failure		500		{object}	types.ErrorResponse
 // @router			/file/setPersonImage [post]
 func SetPersonImage(ctx *gin.Context) {
-	file, err := ctx.FormFile("image") // 获取图片文件
-	if err != nil {                    // 如果获取图片文件失败，返回 400 错误
-		ctx.JSON(http.StatusBadRequest, types.ErrorResponse{Message: "??????"})
+	userID, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, types.ErrorResponse{Message: "未登录"})
 		return
-	}
-	if file.Size > 1024*1024*2 {
+	} // 如果用户ID不存在，返回 401 错误
+	ID, ok := userID.(int)
+	if !ok {
+		ctx.JSON(http.StatusUnauthorized, types.ErrorResponse{Message: "用户身份无效"})
+		return
+	} // 如果用户ID无效，返回 401 错误
+
+	file, err := ctx.FormFile("image") // 获取图片文件
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, types.ErrorResponse{Message: "请选择图片文件"})
+		return
+	} // 如果获取图片文件失败，返回 400 错误
+	if file.Size > maxAvatarBytes {
 		ctx.JSON(http.StatusBadRequest, types.ErrorResponse{
-			Message: "????????2MB",
+			Message: "图片大小不能超过 2MB",
 		})
 		return
-	} // 如果图片文件大小大于 2MB，返回 400 错误
+	} // 如果图片大小超过 2MB，返回 400 错误
 
 	ext := strings.ToLower(filepath.Ext(file.Filename))
 	if ext != ".jpg" && ext != ".jpeg" && ext != ".png" {
 		ctx.JSON(http.StatusBadRequest, types.ErrorResponse{
-			Message: "???????JPG?JPEG?PNG",
+			Message: "仅支持 JPG、JPEG、PNG 格式",
 		})
 		return
-	}
+	} // 如果文件格式不支持，返回 400 错误
 
-	src, err := file.Open()
+	src, err := file.Open() // 打开图片文件
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, types.ErrorResponse{Message: "??????"})
+		ctx.JSON(http.StatusInternalServerError, types.ErrorResponse{Message: "读取文件失败"})
 		return
 	}
-	defer src.Close()
-	header := make([]byte, 512)
-	n, _ := io.ReadFull(src, header)
-	mime := http.DetectContentType(header[:n])
-	if mime != "image/jpeg" && mime != "image/png" {
-		ctx.JSON(http.StatusBadRequest, types.ErrorResponse{Message: "??????"})
-		return
-	}
+	defer src.Close() // 关闭图片文件
 
-	userID, exists := ctx.Get("userID")
-	if !exists {
-		ctx.JSON(http.StatusUnauthorized, types.ErrorResponse{
-			Message: "???",
+	// 单次读取：限制实际字节数（防止声明大小与真实流不一致），再用魔数校验真实类型
+	data, err := io.ReadAll(io.LimitReader(src, maxAvatarBytes+1)) // 读取图片文件
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, types.ErrorResponse{Message: "读取文件失败"})
+		return
+	}
+	if len(data) > maxAvatarBytes { // 如果图片大小超过 2MB，返回 400 错误
+		ctx.JSON(http.StatusBadRequest, types.ErrorResponse{
+			Message: "图片大小不能超过 2MB",
 		})
 		return
 	}
-	m := sql.NewUserMapper()
-	ID, ok := userID.(int)
-	if !ok {
-		ctx.JSON(http.StatusUnauthorized, types.ErrorResponse{
-			Message: "???",
-		})
+	if len(data) == 0 { // 如果图片为空，返回 400 错误
+		ctx.JSON(http.StatusBadRequest, types.ErrorResponse{Message: "文件为空"})
+		return
+	}
+	mime := http.DetectContentType(data)             // 检测图片类型
+	if mime != "image/jpeg" && mime != "image/png" { // 如果图片类型不是 JPG/PNG，返回 400 错误
+		ctx.JSON(http.StatusBadRequest, types.ErrorResponse{Message: "文件内容不是有效的 JPG/PNG 图片"})
 		return
 	}
 
-	fileName := RandomFileName() + ext
+	fileName := RandomFileName() + ext // 生成文件名
 	uploadRoot := config.Get().Upload.Dir
-	if uploadRoot == "" {
+	if uploadRoot == "" { // 如果上传目录为空，设置默认目录
 		uploadRoot = "uploads"
 	}
 	userDir := filepath.Join(uploadRoot, fmt.Sprintf("%d", ID))
 	if err = os.MkdirAll(userDir, 0755); err != nil {
-		ctx.JSON(http.StatusInternalServerError, types.ErrorResponse{Message: "??????"})
+		ctx.JSON(http.StatusInternalServerError, types.ErrorResponse{Message: "创建目录失败"})
 		return
 	}
 	dst := filepath.Join(userDir, fileName)
 
-	// ????????????????
-	src2, err := file.Open()
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, types.ErrorResponse{Message: "??????"})
+	if err = os.WriteFile(dst, data, 0644); err != nil {
+		ctx.JSON(http.StatusInternalServerError, types.ErrorResponse{Message: "保存文件失败"})
 		return
 	}
-	defer src2.Close()
-	buf := bytes.NewBuffer(nil)
-	if _, err = io.Copy(buf, src2); err != nil {
-		ctx.JSON(http.StatusInternalServerError, types.ErrorResponse{Message: "??????"})
-		return
-	}
-	if err = os.WriteFile(dst, buf.Bytes(), 0644); err != nil {
-		ctx.JSON(http.StatusInternalServerError, types.ErrorResponse{Message: "??????"})
-		return
-	}
-
-	err = m.UpdateImage(ID, fileName)
-	if err != nil {
+	url := config.Get().Upload.URLPrefix + "/" + fmt.Sprintf("%d", ID) + "/" + fileName
+	m := sql.NewUserMapper()
+	if err = m.UpdateImage(ID, url); err != nil {
+		_ = os.Remove(dst)
 		ctx.JSON(http.StatusInternalServerError, types.ErrorResponse{
-			Message: "??????",
+			Message: "更新头像失败",
 		})
 		return
 	}
 
 	Log.ZLog.Info("upload_image_success", zap.Int("user_id", ID), zap.String("file", dst))
 	ctx.JSON(http.StatusOK, types.SuccessResponse{
-		Message: "??????",
+		Message: "头像上传成功",
+		Data: gin.H{
+			"url": url,
+		},
 	})
 }
 
@@ -138,35 +146,73 @@ func SetPersonImage(ctx *gin.Context) {
 func UpLoadArticleFile(ctx *gin.Context) {
 	userID, exists := ctx.Get("userID")
 	if !exists {
-		ctx.JSON(http.StatusUnauthorized, types.ErrorResponse{Message: "???"})
+		ctx.JSON(http.StatusUnauthorized, types.ErrorResponse{Message: "未登录"})
 		return
 	}
 	id, ok := userID.(int)
 	if !ok {
-		ctx.JSON(http.StatusUnauthorized, types.ErrorResponse{Message: "???"})
+		ctx.JSON(http.StatusUnauthorized, types.ErrorResponse{Message: "用户身份无效"})
 		return
 	}
-	body, err := io.ReadAll(ctx.Request.Body)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, types.ErrorResponse{Message: "参数错误"})
+
+	var body []byte
+	var err error
+	ct := ctx.GetHeader("Content-Type")
+	if strings.Contains(ct, "multipart/form-data") {
+		file, ferr := ctx.FormFile("article")
+		if ferr != nil {
+			ctx.JSON(http.StatusBadRequest, types.ErrorResponse{Message: "请通过表单字段 article 上传文件"})
+			return
+		}
+		if file.Size > maxArticleMarkdownBytes {
+			ctx.JSON(http.StatusBadRequest, types.ErrorResponse{Message: "文章内容不能超过 10MB"})
+			return
+		}
+		src, ferr := file.Open()
+		if ferr != nil {
+			ctx.JSON(http.StatusInternalServerError, types.ErrorResponse{Message: "读取上传文件失败"})
+			return
+		}
+		body, err = io.ReadAll(io.LimitReader(src, maxArticleMarkdownBytes+1))
+		_ = src.Close()
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, types.ErrorResponse{Message: "读取上传文件失败"})
+			return
+		}
+	} else {
+		body, err = io.ReadAll(io.LimitReader(ctx.Request.Body, maxArticleMarkdownBytes+1))
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, types.ErrorResponse{Message: "读取请求体失败"})
+			return
+		}
+	}
+
+	if len(body) > maxArticleMarkdownBytes {
+		ctx.JSON(http.StatusBadRequest, types.ErrorResponse{Message: "文章内容不能超过 10MB"})
 		return
 	}
-	url, err := saveMarkdownContentForUser(id, string(body))
+	prefix := ctx.DefaultQuery("type", "md")
+	url, err := saveMarkdownContentForUser(id, prefix, string(body))
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, types.ErrorResponse{Message: "??????"})
+		if errors.Is(err, ErrEmptyArticleContent) {
+			ctx.JSON(http.StatusBadRequest, types.ErrorResponse{Message: "文章内容不能为空"})
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, types.ErrorResponse{Message: "保存文章文件失败"})
 		return
 	}
 	ctx.JSON(http.StatusOK, types.SuccessResponse{
-		Message: "??????",
+		Message: "文章上传成功",
 		Data: gin.H{
 			"url": url,
 		},
 	})
 }
 
-func saveMarkdownContentForUser(userID int, content string) (string, error) {
+// saveMarkdownContentForUser 保存 Markdown 内容到用户目录
+func saveMarkdownContentForUser(userID int, prefix string, content string) (string, error) {
 	if strings.TrimSpace(content) == "" {
-		return "", errors.New("content is empty")
+		return "", ErrEmptyArticleContent
 	}
 	uploadRoot := config.Get().Upload.Dir
 	if uploadRoot == "" {
@@ -176,7 +222,7 @@ func saveMarkdownContentForUser(userID int, content string) (string, error) {
 	if err := os.MkdirAll(userDir, 0755); err != nil {
 		return "", err // 如果创建用户目录失败，返回错误
 	}
-	filename := RandomFileName() + ".md"
+	filename := RandomFileName() + "." + prefix
 	dst := filepath.Join(userDir, filename)
 	if err := os.WriteFile(dst, []byte(content), 0644); err != nil {
 		return "", err // 如果写入文件失败，返回错误
@@ -189,17 +235,28 @@ func RandomFileName() string {
 	_, _ = rand.Read(b)
 	return hex.EncodeToString(b) // 返回随机文件名
 }
+
 // @Summary		GetFileHandler
 // @Description	GetFileHandler
 // @Tags			file
 // @Produce		octet-stream
-// @Param			filename	path	string	true	"文件名"
-// @Success		200		{file}		file
-// @Failure		404		{object}	types.ErrorResponse
-// @router			/file/getFile [get]
+// @Param			filename	path		string	true	"文件名"
+// @Success		200			{file}		file
+// @Failure		404			{object}	types.ErrorResponse
+// @router			/file/getFile/:filename [get]
 func GetFileHandler(ctx *gin.Context) {
+	userID, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, types.ErrorResponse{Message: "未登录"})
+		return
+	}
+	id, ok := userID.(int)
+	if !ok {
+		ctx.JSON(http.StatusUnauthorized, types.ErrorResponse{Message: "用户身份无效"})
+		return
+	}
 	filename := ctx.Param("filename")
-	filepath := filepath.Join(config.Get().Upload.Dir, filename)
+	filepath := filepath.Join(config.Get().Upload.Dir, strconv.Itoa(id), filename)
 	if _, err := os.Stat(filepath); os.IsNotExist(err) {
 		ctx.JSON(http.StatusNotFound, types.ErrorResponse{Message: "File not found"})
 		return

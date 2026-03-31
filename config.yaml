@@ -2,20 +2,20 @@ server:
   port: 8080
 
 limit:
-  read: 100
-  rate: 1
+  read: 10000
+  rate: 1000
 
 smtp:
   host: ""
-  port: 587
-  username: ""
-  password: ""
-  from: ""
+  port: ""
+  username: 
+  password: 
+  from: 
 
 upload:
-  dir: "uploads"
-  url_prefix: "/uploads"
+  dir: 
+  url_prefix: 
 
 feature:
-  enable_email_verify: true
-  enable_markdown_api: true
+  enable_email_verify: 
+  enable_markdown_api: 

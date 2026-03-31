@@ -647,5 +647,5 @@ func MarkdownToHtml(s string) string {
 	s = DeltoHtml(s)
 	s = ParagraphToHtml(s)
 	s = unprotectHTMLPlaceholders(s, htmlBlocks)
-	return WrapStyledHtml(s)
+	return s
 }

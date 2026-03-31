@@ -2,6 +2,7 @@ package sql
 
 import (
 	"blog/internal/model"
+	"strings"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -94,11 +95,27 @@ func (a *ArticleMapper) DeleteByID(id int) error {
 	_, err := a.DB.Exec("DELETE FROM article WHERE id = ?", id)
 	return err
 }
-func (a *ArticleMapper) SearchArticles(keyword string) ([]model.Article, error) {
-	ats := []model.Article{}
-	err := a.DB.Select(&ats, "SELECT id FROM article d where title like '%?%'", keyword)
+
+// escapeLikePattern 转义 MySQL LIKE 中的 \、%、_，配合 ESCAPE '\\' 使用，避免用户输入被当成通配符。
+func escapeLikePattern(s string) string {
+	s = strings.ReplaceAll(s, "\\", "\\\\")
+	s = strings.ReplaceAll(s, "%", "\\%")
+	s = strings.ReplaceAll(s, "_", "\\_")
+	return s
+}
+
+// SearchByKeyword 按标题、正文链接字段、标签模糊搜索（分页）。
+func (a *ArticleMapper) SearchByKeyword(keyword string, limit int, offset int) ([]*model.Article, error) {
+	pattern := "%" + escapeLikePattern(keyword) + "%"
+	var articles []*model.Article
+	err := a.DB.Select(&articles, `
+		SELECT id, title, content, create_time, update_time, author_id, status, category_id, tags, cover_url
+		FROM article
+		WHERE (title LIKE ? ESCAPE '\\' OR content LIKE ? ESCAPE '\\' OR tags LIKE ? ESCAPE '\\')
+		ORDER BY create_time DESC
+		LIMIT ?, ?`, pattern, pattern, pattern, offset, limit)
 	if err != nil {
 		return nil, err
 	}
-	return ats, nil
+	return articles, nil
 }

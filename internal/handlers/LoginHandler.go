@@ -103,18 +103,39 @@ func LoginHandler(c *gin.Context) {
 // @Tags			auth
 // @Accept			json
 // @Produce		json
-// @Param			req	body		types.LoginRequest	true	"Register Request"
+// @Param			req	body		types.RegisterRequest	true	"Register Request"
 // @Success		200	{object}	types.LoginResponse
 // @Failure		400	{object}	types.ErrorResponse
 // @Router			/auth/register [post]
 func RegisterHandler(c *gin.Context) {
-	var req types.LoginRequest
+	var req types.RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, types.ErrorResponse{
 			Message: "参数错误",
 		})
 		return
-	} // 如果参数错误，返回 400 错误
+	}
+	s, err := redis.GetSession(req.Username)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, types.ErrorResponse{
+			Message: "获取session失败",
+		})
+		return
+	}
+	code, err := s.Get("code")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, types.ErrorResponse{
+			Message: "获取验证码失败",
+		})
+		return
+	}
+	if code != req.Code {
+		c.JSON(http.StatusBadRequest, types.ErrorResponse{
+			Message: "验证码错误",
+		})
+		return
+	}
+	// 如果参数错误，返回 400 错误
 	if !utils.Lengthcheck(6, req.Username, req.Password) {
 		c.JSON(http.StatusBadRequest, types.ErrorResponse{
 			Message: "用户名或密码长度不足",
@@ -246,9 +267,9 @@ func RefreshTokenHandler(c *gin.Context) {
 //	@Summary		JudgeToken
 //	@Description	JudgeToken
 //	@Tags			auth
-//	@Accept			text/html
-//	@Produce		text/html
-//	@Success		302	{string}	string	"Redirect to main page"
+//	@Accept			json
+//	@Produce		json
+//	@Success		200	{object}	types.SuccessResponse
 //	@Failure		401	{object}	types.ErrorResponse
 //	@Router			/auth/judgeToken [get]
 //
@@ -262,6 +283,8 @@ func JudgeToken(ctx *gin.Context) {
 		return
 	}
 	Log.ZLog.Info("JudgeToken", zap.String("token", token.(string))) // 记录token日志
-	ctx.Redirect(http.StatusFound, "/main")                          // 如果 token 存在，重定向到主页
-	return
+	ctx.JSON(http.StatusOK, types.SuccessResponse{
+		Code:    http.StatusOK,
+		Message: "token valid",
+	}) // token 有效时返回 JSON，避免前端 fetch 跟随 302 导致跨域
 }

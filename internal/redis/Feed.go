@@ -11,8 +11,9 @@ import (
 )
 
 const (
-	feedKeyPrefix = "feed:user:"
-	defaultLimit  = 10
+	feedKeyPrefix     = "feed:user:"
+	followerKeyPrefix = "followers:"
+	defaultLimit      = 10
 )
 
 var ctx = context.Background()
@@ -20,6 +21,7 @@ var ctx = context.Background()
 type FeedService struct {
 	client *redis.Client
 }
+
 // 创建FeedService
 func NewFeedService(client *redis.Client) *FeedService {
 	return &FeedService{
@@ -31,15 +33,65 @@ func getFeedKey(userID int) string {
 	return fmt.Sprintf("%s%d", feedKeyPrefix, userID)
 }
 
+func getFollowerKey(userID int) string {
+	return fmt.Sprintf("%s%d", followerKeyPrefix, userID)
+}
+
+// AddFollower 建立关注关系：followerID 关注 targetUserID。
+func (fs *FeedService) AddFollower(targetUserID int, followerID int) error {
+	key := getFollowerKey(targetUserID)
+	err := fs.client.SAdd(ctx, key, strconv.Itoa(followerID)).Err()
+	if err != nil {
+		log.Printf("Failed to add follower %d for user %d: %v", followerID, targetUserID, err)
+		return fmt.Errorf("failed to add follower: %w", err)
+	}
+	return nil
+}
+
+// RemoveFollower 取消关注关系：followerID 取消关注 targetUserID。
+func (fs *FeedService) RemoveFollower(targetUserID int, followerID int) error {
+	key := getFollowerKey(targetUserID)
+	err := fs.client.SRem(ctx, key, strconv.Itoa(followerID)).Err()
+	if err != nil {
+		log.Printf("Failed to remove follower %d for user %d: %v", followerID, targetUserID, err)
+		return fmt.Errorf("failed to remove follower: %w", err)
+	}
+	return nil
+}
+
+// GetFollowerIDs 返回指定作者的粉丝用户ID列表。
+func (fs *FeedService) GetFollowerIDs(authorID int) ([]int, error) {
+	key := getFollowerKey(authorID)
+	members, err := fs.client.SMembers(ctx, key).Result()
+	if err != nil {
+		log.Printf("Failed to get followers for user %d: %v", authorID, err)
+		return nil, fmt.Errorf("failed to get follower ids: %w", err)
+	}
+	if len(members) == 0 {
+		return []int{}, nil
+	}
+
+	followerIDs := make([]int, 0, len(members))
+	for _, v := range members {
+		id, convErr := strconv.Atoi(v)
+		if convErr != nil {
+			log.Printf("Failed to parse follower id %s: %v", v, convErr)
+			continue
+		}
+		followerIDs = append(followerIDs, id)
+	}
+	return followerIDs, nil
+}
+
 func (fs *FeedService) AddArticleToFeed(userID int, articleID int, timestamp time.Time) error {
-	key := getFeedKey(userID) // "feed:user:1"
+	key := getFeedKey(userID)          // "feed:user:1"
 	score := float64(timestamp.Unix()) // 时间戳
-	member := strconv.Itoa(articleID) // "1"
+	member := strconv.Itoa(articleID)  // "1"
 	err := fs.client.ZAdd(ctx, key, redis.Z{
 		Score:  score,
 		Member: member,
 	}).Err()
-    // 添加文章到Feed中如果失败，返回 500 错误
+	// 添加文章到Feed中如果失败，返回 500 错误
 	if err != nil {
 		log.Printf("Failed to add article %d to user %d feed: %v", articleID, userID, err)
 		return fmt.Errorf("failed to add article to feed: %w", err)

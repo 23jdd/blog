@@ -978,20 +978,20 @@ const docTemplate = `{
             "get": {
                 "description": "JudgeToken",
                 "consumes": [
-                    "text/html"
+                    "application/json"
                 ],
                 "produces": [
-                    "text/html"
+                    "application/json"
                 ],
                 "tags": [
                     "auth"
                 ],
                 "summary": "JudgeToken",
                 "responses": {
-                    "302": {
-                        "description": "Redirect to main page",
+                    "200": {
+                        "description": "OK",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/types.SuccessResponse"
                         }
                     },
                     "401": {
@@ -1154,7 +1154,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/types.LoginRequest"
+                            "$ref": "#/definitions/types.RegisterRequest"
                         }
                     }
                 ],
@@ -1481,25 +1481,22 @@ const docTemplate = `{
                 }
             }
         },
-        "/email/verify": {
+        "/file/getFile/:filename": {
             "get": {
-                "description": "EmailVerifyHandler",
-                "consumes": [
-                    "application/json"
-                ],
+                "description": "GetFileHandler",
                 "produces": [
-                    "application/json"
+                    "application/octet-stream"
                 ],
                 "tags": [
-                    "email"
+                    "file"
                 ],
-                "summary": "EmailVerifyHandler",
+                "summary": "GetFileHandler",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "??",
-                        "name": "email",
-                        "in": "query",
+                        "description": "文件名",
+                        "name": "filename",
+                        "in": "path",
                         "required": true
                     }
                 ],
@@ -1507,17 +1504,11 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/types.SuccessResponse"
+                            "type": "file"
                         }
                     },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/types.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/types.ErrorResponse"
                         }
@@ -1527,7 +1518,7 @@ const docTemplate = `{
         },
         "/file/setPersonImage": {
             "post": {
-                "description": "????????",
+                "description": "SetPersonImage",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -1537,11 +1528,11 @@ const docTemplate = `{
                 "tags": [
                     "file"
                 ],
-                "summary": "????????",
+                "summary": "SetPersonImage",
                 "parameters": [
                     {
                         "type": "file",
-                        "description": "??",
+                        "description": "图片文件",
                         "name": "image",
                         "in": "formData",
                         "required": true
@@ -1571,7 +1562,7 @@ const docTemplate = `{
         },
         "/file/uploadArticle": {
             "post": {
-                "description": "??????",
+                "description": "UpLoadArticleFile",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -1581,11 +1572,11 @@ const docTemplate = `{
                 "tags": [
                     "file"
                 ],
-                "summary": "??????",
+                "summary": "UpLoadArticleFile",
                 "parameters": [
                     {
                         "type": "file",
-                        "description": "??",
+                        "description": "文章文件",
                         "name": "article",
                         "in": "formData",
                         "required": true
@@ -1646,6 +1637,104 @@ const docTemplate = `{
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/types.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/types.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/interactions/follow/{targetID}": {
+            "post": {
+                "description": "当前用户关注目标用户，写入 Redis followers 集合",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "interactions"
+                ],
+                "summary": "关注用户",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "目标用户ID",
+                        "name": "targetID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/types.SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/types.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/types.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/types.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "当前用户取消关注目标用户，从 Redis followers 集合中移除",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "interactions"
+                ],
+                "summary": "取消关注用户",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "目标用户ID",
+                        "name": "targetID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/types.SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/types.ErrorResponse"
                         }
                     },
                     "401": {
@@ -1875,6 +1964,57 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/verification/send": {
+            "get": {
+                "description": "SendEmailVerifyCode",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "verification"
+                ],
+                "summary": "SendEmailVerifyCode",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Email",
+                        "name": "email",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Code",
+                        "name": "code",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/types.SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/types.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/types.ErrorResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -2053,7 +2193,6 @@ const docTemplate = `{
         "types.DraftSaveRequest": {
             "type": "object",
             "required": [
-                "content_url",
                 "title"
             ],
             "properties": {
@@ -2140,6 +2279,24 @@ const docTemplate = `{
                 "refresh_token": {
                     "type": "string",
                     "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                }
+            }
+        },
+        "types.RegisterRequest": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "description": "验证码",
+                    "type": "string",
+                    "example": "123456"
+                },
+                "password": {
+                    "type": "string",
+                    "example": "P@ssw0rd123"
+                },
+                "username": {
+                    "type": "string",
+                    "example": "alice"
                 }
             }
         },

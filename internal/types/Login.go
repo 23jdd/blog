@@ -8,7 +8,11 @@ type LoginRequest struct {
 type RefreshTokenRequest struct {
 	RefreshToken string `json:"refresh_token" example:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."`
 }
-
+type RegisterRequest struct {
+	Username string `json:"username" example:"alice"`
+	Password string `json:"password" example:"P@ssw0rd123"`
+	Code     string `json:"code" example:"123456"` // 验证码
+}
 type LoginResponse struct {
 	Code         int    `json:"code" example:"200"`
 	Message      string `json:"message" example:"success"`

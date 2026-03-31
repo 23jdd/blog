@@ -130,7 +130,6 @@ definitions:
         maxLength: 255
         type: string
     required:
-    - content_url
     - title
     type: object
   types.ErrorResponse:
@@ -182,6 +181,19 @@ definitions:
     properties:
       refresh_token:
         example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+    type: object
+  types.RegisterRequest:
+    properties:
+      code:
+        description: 验证码
+        example: "123456"
+        type: string
+      password:
+        example: P@ssw0rd123
+        type: string
+      username:
+        example: alice
         type: string
     type: object
   types.ReviewStatusRequest:
@@ -888,15 +900,15 @@ paths:
   /auth/judgeToken:
     get:
       consumes:
-      - text/html
+      - application/json
       description: JudgeToken
       produces:
-      - text/html
+      - application/json
       responses:
-        "302":
-          description: Redirect to main page
+        "200":
+          description: OK
           schema:
-            type: string
+            $ref: '#/definitions/types.SuccessResponse'
         "401":
           description: Unauthorized
           schema:
@@ -1000,7 +1012,7 @@ paths:
         name: req
         required: true
         schema:
-          $ref: '#/definitions/types.LoginRequest'
+          $ref: '#/definitions/types.RegisterRequest'
       produces:
       - application/json
       responses:
@@ -1218,42 +1230,36 @@ paths:
       summary: 更新草稿
       tags:
       - drafts
-  /email/verify:
+  /file/getFile/:filename:
     get:
-      consumes:
-      - application/json
-      description: EmailVerifyHandler
+      description: GetFileHandler
       parameters:
-      - description: ??
-        in: query
-        name: email
+      - description: 文件名
+        in: path
+        name: filename
         required: true
         type: string
       produces:
-      - application/json
+      - application/octet-stream
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/types.SuccessResponse'
-        "400":
-          description: Bad Request
+            type: file
+        "404":
+          description: Not Found
           schema:
             $ref: '#/definitions/types.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/types.ErrorResponse'
-      summary: EmailVerifyHandler
+      summary: GetFileHandler
       tags:
-      - email
+      - file
   /file/setPersonImage:
     post:
       consumes:
       - multipart/form-data
-      description: ????????
+      description: SetPersonImage
       parameters:
-      - description: ??
+      - description: 图片文件
         in: formData
         name: image
         required: true
@@ -1273,16 +1279,16 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/types.ErrorResponse'
-      summary: ????????
+      summary: SetPersonImage
       tags:
       - file
   /file/uploadArticle:
     post:
       consumes:
       - multipart/form-data
-      description: ??????
+      description: UpLoadArticleFile
       parameters:
-      - description: ??
+      - description: 文章文件
         in: formData
         name: article
         required: true
@@ -1302,7 +1308,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/types.ErrorResponse'
-      summary: ??????
+      summary: UpLoadArticleFile
       tags:
       - file
   /interactions/feed:
@@ -1338,6 +1344,71 @@ paths:
       summary: 获取个性化Feed
       tags:
       - recommend
+  /interactions/follow/{targetID}:
+    delete:
+      consumes:
+      - application/json
+      description: 当前用户取消关注目标用户，从 Redis followers 集合中移除
+      parameters:
+      - description: 目标用户ID
+        in: path
+        name: targetID
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: 取消关注用户
+      tags:
+      - interactions
+    post:
+      consumes:
+      - application/json
+      description: 当前用户关注目标用户，写入 Redis followers 集合
+      parameters:
+      - description: 目标用户ID
+        in: path
+        name: targetID
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: 关注用户
+      tags:
+      - interactions
   /interactions/my-collections:
     get:
       consumes:
@@ -1478,4 +1549,38 @@ paths:
       summary: UpdateUserInfo
       tags:
       - auth
+  /verification/send:
+    get:
+      consumes:
+      - application/json
+      description: SendEmailVerifyCode
+      parameters:
+      - description: Email
+        in: query
+        name: email
+        required: true
+        type: string
+      - description: Code
+        in: query
+        name: code
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/types.ErrorResponse'
+      summary: SendEmailVerifyCode
+      tags:
+      - verification
 swagger: "2.0"

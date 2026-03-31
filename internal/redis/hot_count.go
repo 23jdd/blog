@@ -9,7 +9,6 @@ import (
 const (
 	hotKey         = "hot:articles"
 	articleViewKey = "article:%d:views"
-
 )
 
 // IncHotByRead 增加阅读热度
@@ -43,8 +42,9 @@ func GetArticleView(articleID int) (int64, error) {
 }
 func GetArticleUserView(userID int) (int64, error) {
 	//return Client.Get(context.Background(), fmt.Sprintf(articleUserViewKey, userID)).Int64()
-	return 0,nil
+	return 0, nil
 }
+
 // GetHot 获取热榜文章ID列表
 func GetHot(sum int) ([]int, error) {
 	if sum <= 0 {

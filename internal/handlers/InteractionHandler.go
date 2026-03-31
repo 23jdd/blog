@@ -19,7 +19,7 @@ func getUserID(ctx *gin.Context) (int, bool) { // 获取用户ID
 		return 0, false
 	}
 	id, ok := userID.(int) // 将用户ID转换为 int 类型
-	return id, ok // 返回用户ID
+	return id, ok          // 返回用户ID
 }
 
 // CreateComment 发布评论/回复
@@ -361,4 +361,78 @@ func ListMyCollections(ctx *gin.Context) {
 		return
 	}
 	ctx.JSON(http.StatusOK, rows)
+}
+
+// FollowUser 关注用户
+//
+//	@Summary		关注用户
+//	@Description	当前用户关注目标用户，写入 Redis followers 集合
+//	@Tags			interactions
+//	@Accept			json
+//	@Produce		json
+//	@Param			targetID	path		int	true	"目标用户ID"
+//	@Success		200			{object}	types.SuccessResponse
+//	@Failure		400			{object}	types.ErrorResponse
+//	@Failure		401			{object}	types.ErrorResponse
+//	@Failure		500			{object}	types.ErrorResponse
+//	@Router			/interactions/follow/{targetID} [post]
+func FollowUser(ctx *gin.Context) {
+	followerID, ok := getUserID(ctx)
+	if !ok {
+		ctx.JSON(http.StatusUnauthorized, types.ErrorResponse{Message: "未授权"})
+		return
+	}
+	targetID, err := strconv.Atoi(ctx.Param("targetID"))
+	if err != nil || targetID <= 0 {
+		ctx.JSON(http.StatusBadRequest, types.ErrorResponse{Message: "参数错误"})
+		return
+	}
+	if followerID == targetID {
+		ctx.JSON(http.StatusBadRequest, types.ErrorResponse{Message: "不能关注自己"})
+		return
+	}
+
+	feedService := redis.NewFeedService(redis.Client)
+	if err = feedService.AddFollower(targetID, followerID); err != nil {
+		ctx.JSON(http.StatusInternalServerError, types.ErrorResponse{Message: "关注失败"})
+		return
+	}
+	ctx.JSON(http.StatusOK, types.SuccessResponse{Message: "关注成功"})
+}
+
+// UnfollowUser 取消关注用户
+//
+//	@Summary		取消关注用户
+//	@Description	当前用户取消关注目标用户，从 Redis followers 集合中移除
+//	@Tags			interactions
+//	@Accept			json
+//	@Produce		json
+//	@Param			targetID	path		int	true	"目标用户ID"
+//	@Success		200			{object}	types.SuccessResponse
+//	@Failure		400			{object}	types.ErrorResponse
+//	@Failure		401			{object}	types.ErrorResponse
+//	@Failure		500			{object}	types.ErrorResponse
+//	@Router			/interactions/follow/{targetID} [delete]
+func UnfollowUser(ctx *gin.Context) {
+	followerID, ok := getUserID(ctx)
+	if !ok {
+		ctx.JSON(http.StatusUnauthorized, types.ErrorResponse{Message: "未授权"})
+		return
+	}
+	targetID, err := strconv.Atoi(ctx.Param("targetID"))
+	if err != nil || targetID <= 0 {
+		ctx.JSON(http.StatusBadRequest, types.ErrorResponse{Message: "参数错误"})
+		return
+	}
+	if followerID == targetID {
+		ctx.JSON(http.StatusBadRequest, types.ErrorResponse{Message: "不能取消关注自己"})
+		return
+	}
+
+	feedService := redis.NewFeedService(redis.Client)
+	if err = feedService.RemoveFollower(targetID, followerID); err != nil {
+		ctx.JSON(http.StatusInternalServerError, types.ErrorResponse{Message: "取消关注失败"})
+		return
+	}
+	ctx.JSON(http.StatusOK, types.SuccessResponse{Message: "取消关注成功"})
 }

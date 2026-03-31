@@ -42,6 +42,7 @@ func GetUserInfoHandler(ctx *gin.Context) {
 		})
 		return
 	}
+	user.ID = id
 	ctx.JSON(http.StatusOK, user) // 返回用户信息
 }
 
@@ -73,7 +74,13 @@ func UpdateUserInfoHandler(ctx *gin.Context) {
 			Message: "age or gender is required",
 		})
 		return
-	} // 如果年龄或性别为空，返回 400 错误
+	} // 如果年龄或性别为空，返回 400 错误\
+	if ageVal.Int32 <= 0 || ageVal.Int32 > 100 || (genderVal.String != "女" && genderVal.String != "男" && genderVal.String != "male" && genderVal.String != "female") {
+		ctx.JSON(http.StatusBadRequest, types.ErrorResponse{
+			Message: "age or gender is invalid",
+		})
+		return
+	}
 	u := model.User{
 		Age:    ageVal,
 		Gender: genderVal,

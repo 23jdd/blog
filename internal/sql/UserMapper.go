@@ -203,6 +203,8 @@ func (u *UserMapper) UpdateImage(id int, image string) error {
 	if err != nil {
 		return err
 	}
+	fmt.Println("update image success: ", image)
+	_ = redis.Client.Del(context.Background(), fmt.Sprintf("%d:info", id)).Err()
 	return nil
 }
 func (u *UserMapper) Delete(id int) error {
@@ -253,7 +255,7 @@ func (u *UserMapper) GetUserInfoByID(id int) (*model.User, error) {
 	value, err := redis.Client.Get(context.Background(), key).Result()
 	if err != nil {
 		// 缓存中不存在，从数据库查询
-		err = u.db.Get(&user, "SELECT username, image, age, gender FROM user WHERE id = ?", id)
+		err = u.db.Get(&user, "SELECT username, image, age, gender, created_at FROM user WHERE id = ?", id)
 		if err != nil {
 			return nil, err
 		}

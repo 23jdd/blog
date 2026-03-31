@@ -63,50 +63,50 @@ func SaveDraft(ctx *gin.Context) {
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, types.ErrorResponse{Message: "参数错误"})
 		return
-	}
+	} // 如果参数错误，返回 400 错误
 	req.Title = strings.TrimSpace(req.Title)
 	contentURL := strings.TrimSpace(req.ContentURL)
 	contentText := strings.TrimSpace(req.Content)
 	if req.Title == "" || (contentURL == "" && contentText == "") {
 		ctx.JSON(http.StatusBadRequest, types.ErrorResponse{Message: "标题和内容不能为空（content_url 或 content 至少一个）"})
 		return
-	}
+	} // 如果标题和内容不能为空，返回 400 错误
 	if len([]rune(req.Title)) > 255 {
 		ctx.JSON(http.StatusBadRequest, types.ErrorResponse{Message: "标题长度不能超过255个字符"})
 		return
-	}
+	} // 如果标题长度不能超过255个字符，返回 400 错误
 	authorID, ok := getAuthUserID(ctx)
 	if !ok {
 		return
-	}
+	} // 如果用户ID不存在，返回 401 错误
 	if contentURL == "" {
 		var err error
-		contentURL, err = saveMarkdownContentForUser(authorID, contentText)
+		contentURL, err = saveMarkdownContentForUser(authorID, "md", contentText) // 保存内容文件
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, types.ErrorResponse{Message: "保存内容文件失败"})
 			return
 		}
-	}
-	contentURL = normalizeContentURL(contentURL, "")
-	if !isValidContentURL(contentURL) {
+	} // 如果内容URL为空，则保存内容文件
+	contentURL = normalizeContentURL(contentURL, "") // 规范化内容URL
+	if !isValidContentURL(contentURL) {              // 如果content_url非法，返回 400 错误
 		ctx.JSON(http.StatusBadRequest, types.ErrorResponse{Message: "content_url 非法，必须是 / 开头或 http/https URL"})
 		return
-	}
+	} // 如果content_url非法，返回 400 错误
 
 	mapper := sql.NewDraftMapper()
 	id, err := mapper.Create(&model.Draft{
 		Title:    req.Title,
 		Content:  contentURL,
 		AuthorID: authorID,
-	})
+	}) // 创建草稿
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, types.ErrorResponse{Message: "保存草稿失败"})
 		return
-	}
+	} // 如果保存草稿失败，返回 500 错误
 	ctx.JSON(http.StatusOK, types.SuccessResponse{
 		Message: "保存草稿成功",
 		Data:    types.DraftIDResponse{ID: id},
-	})
+	}) // 返回保存草稿成功
 }
 
 // UpdateDraft 更新草稿
@@ -152,7 +152,7 @@ func UpdateDraft(ctx *gin.Context) {
 		return
 	}
 	if contentURL == "" {
-		contentURL, err = saveMarkdownContentForUser(authorID, contentText)
+		contentURL, err = saveMarkdownContentForUser(authorID, "md", contentText)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, types.ErrorResponse{Message: "保存内容文件失败"})
 			return

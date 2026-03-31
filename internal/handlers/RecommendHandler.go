@@ -29,18 +29,18 @@ func GetMyFeed(ctx *gin.Context) {
 		ctx.JSON(http.StatusUnauthorized, types.ErrorResponse{Message: "未授权"})
 		return
 	}
-	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1")) // 获取页码，如果为空，则默认为 1
-	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("pageSize", "10")) // 获取每页条数，如果为空，则默认为 10
-	feedService := redis.NewFeedService(redis.Client) // 创建FeedService
+	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))                       // 获取页码，如果为空，则默认为 1
+	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("pageSize", "10"))              // 获取每页条数，如果为空，则默认为 10
+	feedService := redis.NewFeedService(redis.Client)                            // 创建FeedService
 	ids, total, err := feedService.GetFeedWithPagination(userID, page, pageSize) // 获取Feed文章ID列表
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, types.ErrorResponse{Message: "获取Feed失败"})
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{
-		"article_ids": ids, // 返回Feed文章ID列表
-		"total":       total, // 返回总条数
-		"page":        page, // 返回页码
+		"article_ids": ids,      // 返回Feed文章ID列表
+		"total":       total,    // 返回总条数
+		"page":        page,     // 返回页码
 		"page_size":   pageSize, // 返回每页条数
 	})
 }
@@ -58,7 +58,7 @@ func GetMyFeed(ctx *gin.Context) {
 //	@Router			/articles/hot [get]
 func GetHotArticles(ctx *gin.Context) {
 	limit, _ := strconv.Atoi(ctx.DefaultQuery("limit", "10")) // 获取 limit 参数，如果为空，则默认为 10
-	ids, err := redis.GetHot(limit) // 获取热门文章ID列表
+	ids, err := redis.GetHot(limit)                           // 获取热门文章ID列表
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, types.ErrorResponse{Message: "获取热榜失败"})
 		return
@@ -87,12 +87,12 @@ func GetArticleStats(ctx *gin.Context) {
 	if err != nil {
 		viewCount = 0
 	}
-	likeCount, _ := sql.NewLikeMapper().CountByArticle(articleID) // 获取文章点赞数
+	likeCount, _ := sql.NewLikeMapper().CountByArticle(articleID)                   // 获取文章点赞数
 	commentCount, _ := sql.NewReviewMapper(sql.GetDB()).CountByArticleID(articleID) // 获取文章评论数
 	ctx.JSON(http.StatusOK, gin.H{
 		"article_id":    articleID,
-		"view_count":    viewCount, // 返回文章访问量
-		"like_count":    likeCount, // 返回文章点赞数
+		"view_count":    viewCount,    // 返回文章访问量
+		"like_count":    likeCount,    // 返回文章点赞数
 		"comment_count": commentCount, // 返回文章评论数
 	})
 }
