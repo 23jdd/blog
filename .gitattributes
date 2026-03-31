@@ -1,0 +1,16 @@
+
+docs/docs.go linguist-generated=true
+docs/swagger.json linguist-generated=true
+docs/swagger.yaml linguist-generated=true
+
+uploads/** linguist-generated=true
+
+
+# 可执行文件与二进制数据不参与语言统计
+*.exe linguist-generated=true
+*.dll linguist-generated=true
+*.so linguist-generated=true
+*.dylib linguist-generated=true
+
+# 依赖缓存目录（若提交）按 vendored 处理
+default.etcd/** linguist-vendored=true
